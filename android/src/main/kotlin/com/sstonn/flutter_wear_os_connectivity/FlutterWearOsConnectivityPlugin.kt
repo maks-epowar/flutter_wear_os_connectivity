@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Pair
-import androidx.annotation.NonNull
 import com.google.android.gms.wearable.*
 import com.google.android.gms.wearable.CapabilityClient.FILTER_ALL
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -55,8 +54,8 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
         mutableMapOf()
 
 
-    override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
-        context = flutterPluginBinding.applicationContext;
+    override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        context = flutterPluginBinding.applicationContext
         channel = MethodChannel(
             flutterPluginBinding.binaryMessenger,
             "sstonn/flutter_wear_os_connectivity"
@@ -72,7 +71,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
         context = null
     }
 
-    override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
+    override fun onMethodCall(call: MethodCall, result: Result) {
         when (call.method) {
             "isSupported" -> {
                 result.success(true)
@@ -106,22 +105,20 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
                 }
             }
             "getCompanionPackageForDevice" -> {
-                val nodeId = call.arguments as String?
-                nodeId?.let {
-                    scope(Dispatchers.IO).launch {
-                        try {
-                            val packageName: String =
-                                nodeClient.getCompanionPackageForNode(it).await()
-                            scope(Dispatchers.Main).launch {
-                                result.success(
-                                    packageName
-                                )
-                            }
-                        } catch (_: Exception) {
-                            handleFlutterError(result, "No companion package found for $nodeId")
+                val nodeId = call.arguments as String
+                scope(Dispatchers.IO).launch {
+                    try {
+                        val packageName: String =
+                            rewriteCompanionPackageName(nodeClient.getCompanionPackageForNode(nodeId).await())
+                        scope(Dispatchers.Main).launch {
+                            result.success(
+                                packageName
+                            )
                         }
-
+                    } catch (_: Exception) {
+                        handleFlutterError(result, "No companion package found for $nodeId")
                     }
+
                 }
             }
             "getLocalDeviceInfo" -> {
@@ -274,7 +271,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
                 val nodeId = arguments["nodeId"] as String
                 val path = arguments["path"] as String
                 val priority = arguments["priority"] as Int
-                scope(Dispatchers.IO).launch {
+                scope(Dispatchers.Default).launch {
                     try {
                         val messageId = messageClient.sendMessage(
                             nodeId,
@@ -290,24 +287,6 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
                     } catch (e: Exception) {
                         handleFlutterError(result, e.message ?: "")
                     }
-                }
-            }
-            "startRemoteActivity" -> {
-                val arguments = call.arguments as Map<*, *>
-                val nodeId = arguments["nodeId"] as String
-                val url = arguments["url"] as String
-                val action = arguments["action"] as String?
-                val intent = Intent(Intent.ACTION_VIEW)
-                    .addCategory(Intent.CATEGORY_BROWSABLE)
-                    .setData(Uri.parse(url))
-                    .setAction(action)
-
-                scope(Dispatchers.IO).launch {
-                    remoteActivityHelper
-                        .startRemoteActivity(
-                            targetIntent = intent,
-                            targetNodeId = nodeId
-                        ).await()
                 }
             }
             "addMessageListener" -> {
@@ -449,6 +428,58 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
                     removeDataListener(result, (name ?: path)!!)
                 }
             }
+            "installCompanionPackage" -> {
+                val nodeId = call.arguments as String
+                scope(Dispatchers.IO).launch {
+                    try {
+                        val packageName = nodeClient.getCompanionPackageForNode(nodeId).await()
+                        val playStoreUri = "market://details?id=$packageName"
+                        val intent = Intent(Intent.ACTION_VIEW)
+                            .addCategory(Intent.CATEGORY_BROWSABLE)
+                            .setData(Uri.parse(playStoreUri))
+                        remoteActivityHelper
+                            .startRemoteActivity(
+                                targetIntent = intent,
+                                targetNodeId = nodeId
+                            ).await()
+                        scope(Dispatchers.Main).launch {
+                            result.success(
+                                null
+                            )
+                        }
+                    } catch (e: Exception) {
+                        handleFlutterError(result, e.message ?: "Failed to install companion package")
+                    }
+                }
+            }
+            "startCompanionPackage" -> {
+                val arguments = call.arguments as Map<*, *>
+                val nodeId = arguments["nodeId"] as String
+                val action = arguments["action"] as String?
+
+                scope(Dispatchers.IO).launch {
+                    try {
+                        val packageName = rewriteCompanionPackageName(nodeClient.getCompanionPackageForNode(nodeId).await())
+                        context?.let {
+                            val intent = it.packageManager.getLaunchIntentForPackage(packageName)?.setAction(action)
+                            if (intent != null) {
+                                remoteActivityHelper
+                                    .startRemoteActivity(
+                                        targetIntent = intent,
+                                        targetNodeId = nodeId
+                                    ).await()
+                                scope(Dispatchers.Main).launch {
+                                    result.success(
+                                        null
+                                    )
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        handleFlutterError(result, e.message ?: "Failed to start companion package")
+                    }
+                }
+            }
             else -> {
                 result.notImplemented()
             }
@@ -520,7 +551,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
     }
 
     private fun addNewMessageListener(result: Result, key: String, filterType: Int?) {
-        scope(Dispatchers.IO).launch {
+        scope(Dispatchers.Default).launch {
             try {
                 messageListeners[key]?.let {
                     messageClient.removeListener(it).await()
@@ -557,7 +588,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
 
     private fun removeMessageListener(result: Result, key: String) {
         messageListeners[key]?.let {
-            scope(Dispatchers.IO).launch {
+            scope(Dispatchers.Default).launch {
                 try {
                     val isRemoved = messageClient.removeListener(it)
                         .await()
@@ -577,7 +608,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
     }
 
     private fun addNewDataListener(result: Result, key: String, filterType: Int?) {
-        scope(Dispatchers.IO).launch {
+        scope(Dispatchers.Default).launch {
             try {
                 dataChangeListeners[key]?.let {
                     dataClient.removeListener(it).await()
@@ -625,7 +656,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
             val tmpEvents = dataEventBuffer.map { dataEvent -> dataEvent }
             val events = tmpEvents.toList()
             val rawEvents: List<Map<String, Any?>> = events.toRawEventList()
-            scope(Dispatchers.IO).launch {
+            scope(Dispatchers.Default).launch {
                 try {
                     val rawEventData = rawEvents.map { event ->
                         convertAndRemapDataItemMap(event["dataItem"] as HashMap<String, Any?>)
@@ -662,7 +693,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
 
     private fun removeDataListener(result: Result, key: String) {
         dataChangeListeners[key]?.let {
-            scope(Dispatchers.IO).launch {
+            scope(Dispatchers.Default).launch {
                 try {
                     val isRemoved = dataClient.removeListener(it)
                         .await()
@@ -748,6 +779,15 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
         }
         inputStream.close()
         return outputFile
+    }
+
+    private fun rewriteCompanionPackageName(companionPackage: String): String {
+        val regex = Regex("""com.samsung.*plugin""")
+        return if (regex.matches(companionPackage)) {
+            "com.samsung.android.app.watchmanager"
+        } else {
+            companionPackage
+        }
     }
 
 

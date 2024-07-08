@@ -2,7 +2,6 @@ library flutter_wear_os_connectivity;
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data' show Uint8List;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_watch_platform_interface/flutter_smart_watch_platform_interface.dart';
@@ -19,8 +18,8 @@ export 'helpers/index.dart'
         ObservableType;
 export "models/index.dart";
 
-part 'wear_os_observer.dart';
 part 'channel.dart';
+part 'wear_os_observer.dart';
 
 class FlutterWearOsConnectivity extends FlutterSmartWatchPlatformInterface {
   static registerWith() {
@@ -50,6 +49,11 @@ class FlutterWearOsConnectivity extends FlutterSmartWatchPlatformInterface {
     return rawNodes.map((nodeJson) {
       return WearOsDevice.fromRawData(channel, (nodeJson as Map? ?? {}));
     }).toList();
+  }
+
+  /// Get companion package for device
+  Future<String?> getCompanionPackageForDevice(String deviceId) {
+    return channel.invokeMethod("getCompanionPackageForDevice", deviceId);
   }
 
   /// Get current local device (your phone) information
@@ -171,16 +175,6 @@ class FlutterWearOsConnectivity extends FlutterSmartWatchPlatformInterface {
       "path": path,
       "priority": priority.index
     })).then((messageId) => messageId ?? -1);
-  }
-
-  /// Start Remote Activity on Wearable
-  /// e.g. startRemoteActivity(url: "market://details?id=com.example.app", deviceId: "wearableId")
-  Future<void> startRemoteActivity({required String url, required String deviceId, String? action = null}) {
-    return channel.invokeMethod("startRemoteActivity", {
-      "url": url,
-      "nodeId": deviceId,
-      "action": action
-    });
   }
 
   /// Listen to message received events
@@ -312,6 +306,19 @@ class FlutterWearOsConnectivity extends FlutterSmartWatchPlatformInterface {
         pathURI != null
             ? {"name": "global_data_channel"}
             : {"path": pathURI.toString()});
+  }
+
+  /// Install companion package on device
+  Future installCompanionPackageOnDevice(String deviceId) {
+    return channel.invokeMethod("installCompanionPackage", deviceId);
+  }
+
+  /// Launch companion package with optional action
+  Future launchCompanionPackageOnDevice(String deviceId, {String? action = null}) {
+    return channel.invokeMethod("getCompanionPackageForDevice", {
+      "nodeId": deviceId,
+      "action": action,
+    });
   }
 
   @override
