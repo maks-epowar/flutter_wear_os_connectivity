@@ -528,14 +528,14 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
             "startCompanionPackage" -> {
                 val arguments = call.arguments as Map<*, *>
                 val nodeId = arguments["nodeId"] as String
-                val type = arguments["type"] as String?
+                val data = arguments["data"] as String?
 
                 scope(Dispatchers.IO).launch {
                     try {
                         context?.let {
                             val intent = Intent(Intent.ACTION_VIEW)
                                 .addCategory(Intent.CATEGORY_BROWSABLE)
-                                .setDataAndType(Uri.parse("wear://${it.packageName}"), type)
+                                .setData(Uri.parse("wear://${it.packageName}/$data"))
                             remoteActivityHelper
                                 .startRemoteActivity(
                                     targetIntent = intent,
