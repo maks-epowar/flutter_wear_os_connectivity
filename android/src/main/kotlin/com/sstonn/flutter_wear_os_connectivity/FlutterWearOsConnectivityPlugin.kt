@@ -528,24 +528,23 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
             "startCompanionPackage" -> {
                 val arguments = call.arguments as Map<*, *>
                 val nodeId = arguments["nodeId"] as String
-                val action = arguments["action"] as String?
+                val type = arguments["type"] as String?
 
                 scope(Dispatchers.IO).launch {
                     try {
-                        val packageName = rewriteCompanionPackageName(nodeClient.getCompanionPackageForNode(nodeId).await())
                         context?.let {
-                            val intent = it.packageManager.getLaunchIntentForPackage(packageName)?.setAction(action)
-                            if (intent != null) {
-                                remoteActivityHelper
-                                    .startRemoteActivity(
-                                        targetIntent = intent,
-                                        targetNodeId = nodeId
-                                    ).await()
-                                scope(Dispatchers.Main).launch {
-                                    result.success(
-                                        null
-                                    )
-                                }
+                            val intent = Intent(Intent.ACTION_VIEW)
+                                .addCategory(Intent.CATEGORY_BROWSABLE)
+                                .setDataAndType(Uri.parse("wear://${it.packageName}"), type)
+                            remoteActivityHelper
+                                .startRemoteActivity(
+                                    targetIntent = intent,
+                                    targetNodeId = nodeId
+                                ).await()
+                            scope(Dispatchers.Main).launch {
+                                result.success(
+                                    null
+                                )
                             }
                         }
                     } catch (e: Exception) {
