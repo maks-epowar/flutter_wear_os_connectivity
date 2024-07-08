@@ -51,11 +51,6 @@ class FlutterWearOsConnectivity extends FlutterSmartWatchPlatformInterface {
     }).toList();
   }
 
-  /// Get companion package for device
-  Future<String?> getCompanionPackageForDevice(String deviceId) {
-    return channel.invokeMethod("getCompanionPackageForDevice", deviceId);
-  }
-
   /// Get current local device (your phone) information
   ///
   /// This method returns a single [WearOsDevice]
