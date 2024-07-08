@@ -529,13 +529,14 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
                 val arguments = call.arguments as Map<*, *>
                 val nodeId = arguments["nodeId"] as String
                 val data = arguments["data"] as String?
+                val query = arguments["query"] as String?
 
                 scope(Dispatchers.IO).launch {
                     try {
                         context?.let {
                             val intent = Intent(Intent.ACTION_VIEW)
                                 .addCategory(Intent.CATEGORY_BROWSABLE)
-                                .setData(Uri.parse("wear://${it.packageName}/$data"))
+                                .setData(Uri.parse("wear://${it.packageName}/$data?$query"))
                             remoteActivityHelper
                                 .startRemoteActivity(
                                     targetIntent = intent,
