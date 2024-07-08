@@ -175,10 +175,11 @@ class FlutterWearOsConnectivity extends FlutterSmartWatchPlatformInterface {
 
   /// Start Remote Activity on Wearable
   /// e.g. startRemoteActivity(url: "market://details?id=com.example.app", deviceId: "wearableId")
-  Future<void> startRemoteActivity({required String url, required String deviceId}) {
+  Future<void> startRemoteActivity({required String url, required String deviceId, String? action = null}) {
     return channel.invokeMethod("startRemoteActivity", {
       "url": url,
       "nodeId": deviceId,
+      "action": action
     });
   }
 

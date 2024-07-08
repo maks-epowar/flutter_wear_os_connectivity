@@ -1,5 +1,6 @@
 package com.sstonn.flutter_wear_os_connectivity
 
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.util.Pair
@@ -39,7 +40,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
     private lateinit var remoteActivityHelper: RemoteActivityHelper
 
     //Activity and context references
-    private var activityBinding: ActivityPluginBinding? = null
+    private var context: Context? = null
 
     //Listeners for capability changed
     private var capabilityListeners: MutableMap<String, CapabilityClient.OnCapabilityChangedListener> =
@@ -55,6 +56,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
 
 
     override fun onAttachedToEngine(@NonNull flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
+        context = flutterPluginBinding.applicationContext;
         channel = MethodChannel(
             flutterPluginBinding.binaryMessenger,
             "sstonn/flutter_wear_os_connectivity"
@@ -67,7 +69,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
     }
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
-        activityBinding = null
+        context = null
     }
 
     override fun onMethodCall(@NonNull call: MethodCall, @NonNull result: Result) {
@@ -77,12 +79,12 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
             }
             "configure" -> {
                 // Initialize all clients
-                activityBinding?.let { it ->
-                    messageClient = Wearable.getMessageClient(it.activity)
-                    nodeClient = Wearable.getNodeClient(it.activity)
-                    dataClient = Wearable.getDataClient(it.activity)
-                    capabilityClient = Wearable.getCapabilityClient(it.activity)
-                    remoteActivityHelper = RemoteActivityHelper(it.activity)
+                context?.let { it ->
+                    messageClient = Wearable.getMessageClient(it)
+                    nodeClient = Wearable.getNodeClient(it)
+                    dataClient = Wearable.getDataClient(it)
+                    capabilityClient = Wearable.getCapabilityClient(it)
+                    remoteActivityHelper = RemoteActivityHelper(it)
                 }
                 result.success(null)
             }
@@ -294,9 +296,11 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
                 val arguments = call.arguments as Map<*, *>
                 val nodeId = arguments["nodeId"] as String
                 val url = arguments["url"] as String
+                val action = arguments["action"] as String?
                 val intent = Intent(Intent.ACTION_VIEW)
                     .addCategory(Intent.CATEGORY_BROWSABLE)
                     .setData(Uri.parse(url))
+                    .setAction(action)
 
                 scope(Dispatchers.IO).launch {
                     remoteActivityHelper
@@ -684,19 +688,19 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
-        this.activityBinding = binding
+        this.context = binding.activity.applicationContext
     }
 
     override fun onDetachedFromActivityForConfigChanges() {
-        activityBinding = null
+        context = null
     }
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
-        this.activityBinding = binding
+        this.context = binding.activity.applicationContext
     }
 
     override fun onDetachedFromActivity() {
-        activityBinding = null
+        context = null
     }
 
     private fun fromDataMap(dataMap: DataMap): Pair<HashMap<String, *>, HashMap<String, *>> {
