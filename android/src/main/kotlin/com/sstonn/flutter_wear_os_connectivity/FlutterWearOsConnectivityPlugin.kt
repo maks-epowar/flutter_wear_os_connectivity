@@ -528,20 +528,26 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
             "startCompanionPackage" -> {
                 val arguments = call.arguments as Map<*, *>
                 val nodeId = arguments["nodeId"] as String
-                val data = arguments["data"] as String?
-                val query = arguments["query"] as String?
+                val path = arguments["path"] as String?
+                val extras = arguments["extras"] as Map<*, *>?
 
                 scope(Dispatchers.IO).launch {
                     try {
                         context?.let {
                             val intent = Intent(Intent.ACTION_VIEW)
                                 .addCategory(Intent.CATEGORY_BROWSABLE)
-                                .setData(Uri.parse("wear://${it.packageName}/$data?$query"))
+                                .setData(Uri.parse("wear://${it.packageName}/$path"))
+
+                            extras?.forEach { mapEntry ->
+                                intent.putExtra(mapEntry.key as String, mapEntry.value as String)
+                            }
+
                             remoteActivityHelper
                                 .startRemoteActivity(
                                     targetIntent = intent,
                                     targetNodeId = nodeId
                                 ).await()
+
                             scope(Dispatchers.Main).launch {
                                 result.success(
                                     null
