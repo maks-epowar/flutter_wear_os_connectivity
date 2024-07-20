@@ -310,7 +310,7 @@ class FlutterWearOsConnectivity extends FlutterSmartWatchPlatformInterface {
 
   /// Launch companion package with optional action
   Future startCompanionPackage(String deviceId,
-      {String? path = null, Map<String, String>? extras = null}) {
+      {String? path = null, Map? extras = null}) {
     return channel.invokeMethod("startCompanionPackage", {
       "nodeId": deviceId,
       "path": path,

@@ -539,7 +539,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
                                 .setData(Uri.parse("wear://${it.packageName}/$path"))
 
                             extras?.forEach { mapEntry ->
-                                intent.putExtra(mapEntry.key as String, mapEntry.value as String)
+                                intent.putExtra(mapEntry.key.toString(), mapEntry.toString())
                             }
 
                             remoteActivityHelper
