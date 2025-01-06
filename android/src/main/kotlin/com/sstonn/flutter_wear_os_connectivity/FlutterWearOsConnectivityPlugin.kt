@@ -12,7 +12,6 @@ import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
 import androidx.wear.remote.interactions.RemoteActivityHelper
-import io.flutter.BuildConfig
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
@@ -24,7 +23,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.io.*
 import kotlin.coroutines.CoroutineContext
-import kotlin.io.path.pathString
 
 const val TAG = "FlutterWearOsConnectivity"
 @SuppressLint("LongLogTag")
@@ -783,15 +781,14 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
 
     private suspend fun convertAndRemapDataItemMap(dataItemMap: HashMap<String, Any?>): HashMap<String, Any?> {
         val filePaths: HashMap<String, String> = HashMap()
-        (dataItemMap["assets"] as HashMap<*, *>).map {
-            val fileExtension = (it.value as HashMap<*, *>)["extension"] as? String?
-            val asset = (it.value as HashMap<*, *>)["asset"] as? Asset?
-            if (fileExtension != null && asset != null) {
-                val inputStream =
-                    dataClient.getFdForAsset(asset).await().inputStream
-                filePaths[it.key.toString().replace("file#", "")] =
-                    copyStreamToFile(inputStream, ".${fileExtension}").path
-            }
+        val assets = dataItemMap["assets"] as HashMap<*, *>
+        val fileName = assets["name"] as? String?
+        val asset = assets["asset"] as? Asset?
+        if (fileName != null && asset != null) {
+            val inputStream =
+                dataClient.getFdForAsset(asset).await().inputStream
+            filePaths[fileName] =
+                copyStreamToFile(inputStream, fileName).path
         }
         dataItemMap["file_paths"] = filePaths
         dataItemMap.remove("assets")
@@ -854,7 +851,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
                 if (it is Asset) {
                     assets = hashMapOf(
                         "asset" to it,
-                        "extension" to dataMap.get<String>("extension")
+                        "name" to dataMap.get<String>("name")
                     )
                     return@let
                 } else if (it is DataMap) {
@@ -872,9 +869,8 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
         return Pair(hashMap, assets)
     }
 
-    private fun copyStreamToFile(inputStream: InputStream, extension: String): File {
-        val outputPath = kotlin.io.path.createTempFile("smart-watch-temp-file-", extension)
-        val outputFile = File(outputPath.pathString)
+    private fun copyStreamToFile(inputStream: InputStream, fileName: String): File {
+        val outputFile = File(context?.cacheDir, fileName)
         inputStream.use { input ->
             val outputStream = FileOutputStream(outputFile)
             outputStream.use { output ->
@@ -972,7 +968,7 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
                 val randomFile = RandomAccessFile(file, "r")
                 val fileBytes = ByteArray(randomFile.length().toInt())
                 randomFile.read(fileBytes)
-                fileDataMap.putString("extension", file.extension)
+                fileDataMap.putString("name", file.name)
                 fileDataMap.putAsset(
                     "asset", Asset.createFromBytes(
                         fileBytes
