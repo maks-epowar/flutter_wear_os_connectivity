@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.Uri
 import android.util.Log
 import android.util.Pair
+import androidx.concurrent.futures.await
 import com.google.android.gms.wearable.*
 import com.google.android.gms.wearable.CapabilityClient.FILTER_ALL
 import io.flutter.embedding.engine.plugins.FlutterPlugin
@@ -18,7 +19,6 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.io.*
@@ -311,14 +311,12 @@ class FlutterWearOsConnectivityPlugin : FlutterPlugin, MethodCallHandler, Activi
                 val data = arguments["data"] as ByteArray
                 val nodeId = arguments["nodeId"] as String
                 val path = arguments["path"] as String
-                val priority = arguments["priority"] as Int
                 scope(Dispatchers.Default).launch {
                     try {
                         val messageId = messageClient.sendMessage(
                             nodeId,
                             path,
                             data,
-                            MessageOptions(priority)
                         ).await()
                         scope(Dispatchers.Main).launch {
                             result.success(

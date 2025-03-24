@@ -10,12 +10,7 @@ import 'helpers/index.dart';
 import 'models/index.dart';
 
 export 'helpers/index.dart'
-    show
-        UriFilterType,
-        CapabilityFilterType,
-        MessagePriority,
-        DataEventType,
-        ObservableType;
+    show UriFilterType, CapabilityFilterType, DataEventType, ObservableType;
 export "models/index.dart";
 
 part 'channel.dart';
@@ -161,14 +156,11 @@ class FlutterWearOsConnectivity extends FlutterSmartWatchPlatformInterface {
 
   /// Send message to specified [deviceId]
   Future<int> sendMessage(Uint8List data,
-      {required String deviceId,
-      required String path,
-      MessagePriority priority = MessagePriority.low}) {
+      {required String deviceId, required String path}) {
     return (channel.invokeMethod<int>("sendMessage", {
       "data": data,
       "nodeId": deviceId,
       "path": path,
-      "priority": priority.index
     })).then((messageId) => messageId ?? -1);
   }
 
